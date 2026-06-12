@@ -48,7 +48,7 @@ Sooper-Wisper is a lightweight, system-wide background macOS helper tool inspire
     ```
 
 2.  **Configure Environment**:
-    Create a `.env` file in the root of the project:
+    Copy `.env.example` to `.env` in the project root and adjust it as needed:
     ```ini
     # Local Whisper Configuration
     # (Optional) Leave empty to automatically download and use the lightweight 'ggml-tiny.en.bin' model (~75MB)
@@ -57,6 +57,10 @@ Sooper-Wisper is a lightweight, system-wide background macOS helper tool inspire
 
     # Application Settings
     GLOBAL_HOTKEY=Option+Space
+
+    # Debug Settings
+    # Set to true to save the last captured audio clip to the app data directory for debugging.
+    SAVE_DEBUG_AUDIO=false
     ```
 
 ---
@@ -70,6 +74,8 @@ npm run tauri dev
 
 > [!NOTE]
 > On the very first startup, the app will check for the Whisper model. If `LOCAL_WHISPER_MODEL_PATH` is empty, it will automatically download `ggml-tiny.en.bin` from Hugging Face and store it inside the application cache directory (`~/Library/Application Support/com.tauri.dev/models/`). You will see download logs in your terminal.
+>
+> When `SAVE_DEBUG_AUDIO=true`, the app will also write the most recent captured clip to the app data directory instead of the repository workspace.
 
 > [!IMPORTANT]
 > **macOS Permissions Required**:

@@ -92,15 +92,47 @@ fn ensure_model_file(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(default_model_path)
 }
 
+fn should_save_debug_audio() -> bool {
+    matches!(
+        std::env::var("SAVE_DEBUG_AUDIO")
+            .ok()
+            .as_deref()
+            .map(str::trim)
+            .map(str::to_ascii_lowercase)
+            .as_deref(),
+        Some("1" | "true" | "yes" | "on")
+    )
+}
+
+fn save_debug_audio(app_handle: &tauri::AppHandle, audio_bytes: &[u8]) {
+    if !should_save_debug_audio() {
+        return;
+    }
+
+    let Some(app_data_dir) = app_handle.path().app_data_dir().ok() else {
+        eprintln!("Skipping debug audio save: unable to determine app data directory");
+        return;
+    };
+
+    if let Err(err) = std::fs::create_dir_all(&app_data_dir) {
+        eprintln!("Skipping debug audio save: failed to create app data directory: {}", err);
+        return;
+    }
+
+    let debug_audio_path = app_data_dir.join("debug_audio.wav");
+    if let Err(err) = std::fs::write(&debug_audio_path, audio_bytes) {
+        eprintln!("Failed to save debug audio to {:?}: {}", debug_audio_path, err);
+    }
+}
+
 #[tauri::command]
 async fn transcribe_audio(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     audio_bytes: Vec<u8>
 ) -> Result<String, String> {
     let whisper_context = state.whisper_context.clone();
-    
-    // Save the incoming audio file to the workspace for debug analysis
-    let _ = std::fs::write("debug_audio.wav", &audio_bytes);
+    save_debug_audio(&app, &audio_bytes);
     
     // 1. Convert PCM WAV format bytes to f32 samples downsampled to 16kHz
     let samples = wav_bytes_to_f32_samples(&audio_bytes)?;

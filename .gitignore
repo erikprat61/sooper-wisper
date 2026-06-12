@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+src-tauri/debug_audio.wav
 
 # Editor directories and files
 .vscode/*
