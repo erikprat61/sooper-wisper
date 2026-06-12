@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sooper-Wisper HUD</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <!-- Floating HUD Capsule -->
+    <main id="hud" class="idle">
+      <!-- Icon Indicator Container -->
+      <div id="status-icon-container">
+        <!-- Recording Dot -->
+        <span class="pulse-dot"></span>
+        
+        <!-- Processing Spinner -->
+        <svg class="spinner-svg" viewBox="0 0 24 24">
+          <circle class="spinner-track" cx="12" cy="12" r="10" fill="none" stroke-width="3"></circle>
+          <circle class="spinner-head" cx="12" cy="12" r="10" fill="none" stroke-width="3" stroke-linecap="round"></circle>
+        </svg>
+
+        <!-- Success Checkmark -->
+        <svg class="checkmark-svg" viewBox="0 0 24 24">
+          <path class="checkmark-path" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M20 6L9 17l-5-5" />
+        </svg>
+      </div>
+
+      <!-- Status Label -->
+      <span id="status-text">Ready</span>
+
+      <!-- Timer Counter -->
+      <span id="timer">0:00</span>
+    </main>
+
+    <!-- Main App Script -->
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

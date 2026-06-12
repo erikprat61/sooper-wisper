@@ -1,0 +1,25 @@
+[package]
+name = "sooper_wisper"
+version = "0.1.0"
+description = "Sooper-Wisper macOS Dictation Tool"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+name = "sooper_wisper_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2", features = ["macos-private-api"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-clipboard-manager = "2"
+reqwest = { version = "0.12", features = ["json", "multipart", "blocking"] }
+tokio = { version = "1", features = ["full"] }
+dotenvy = "0.15"
+whisper-rs = { version = "0.14" }
