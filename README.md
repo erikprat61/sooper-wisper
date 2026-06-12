@@ -75,7 +75,7 @@ npm run tauri dev
 > [!NOTE]
 > On the very first startup, the app will check for the Whisper model. If `LOCAL_WHISPER_MODEL_PATH` is empty, it will automatically download `ggml-tiny.en.bin` from Hugging Face and store it inside the application cache directory (`~/Library/Application Support/com.tauri.dev/models/`). You will see download logs in your terminal.
 >
-> When `SAVE_DEBUG_AUDIO=true`, the app will also write the most recent captured clip to the app data directory instead of the repository workspace.
+> When `SAVE_DEBUG_AUDIO=true`, the app will also write the most recent captured clip to `~/Library/Application Support/com.tauri.dev/debug_audio.wav` instead of the repository workspace.
 
 > [!IMPORTANT]
 > **macOS Permissions Required**:

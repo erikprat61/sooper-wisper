@@ -93,15 +93,9 @@ fn ensure_model_file(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 fn should_save_debug_audio() -> bool {
-    matches!(
-        std::env::var("SAVE_DEBUG_AUDIO")
-            .ok()
-            .as_deref()
-            .map(str::trim)
-            .map(str::to_ascii_lowercase)
-            .as_deref(),
-        Some("1" | "true" | "yes" | "on")
-    )
+    std::env::var("SAVE_DEBUG_AUDIO")
+        .ok()
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"))
 }
 
 fn save_debug_audio(app_handle: &tauri::AppHandle, audio_bytes: &[u8]) {
