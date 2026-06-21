@@ -4,39 +4,295 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sooper-Wisper HUD</title>
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   </head>
-  <body>
-    <!-- Floating HUD Capsule -->
-    <main id="hud" class="idle">
-      <!-- Icon Indicator Container -->
-      <div id="status-icon-container">
-        <!-- Recording Dot -->
-        <span class="pulse-dot"></span>
-        
-        <!-- Processing Spinner -->
-        <svg class="spinner-svg" viewBox="0 0 24 24">
-          <circle class="spinner-track" cx="12" cy="12" r="10" fill="none" stroke-width="3"></circle>
-          <circle class="spinner-head" cx="12" cy="12" r="10" fill="none" stroke-width="3" stroke-linecap="round"></circle>
-        </svg>
+  <body data-view="hud">
+    <main id="hud" class="idle" data-waveform-mode="mic">
+      <div class="hud-row" data-tauri-drag-region>
+        <div class="visualizer-shell" aria-hidden="true">
+          <svg class="status-icon mic-svg" viewBox="0 0 24 24">
+            <path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" fill="currentColor" />
+            <path d="M18 12a1 1 0 1 1 2 0 8 8 0 0 1-7 7.94V22h2a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2h2v-2.06A8 8 0 0 1 4 12a1 1 0 1 1 2 0 6 6 0 1 0 12 0Z" fill="currentColor" />
+          </svg>
 
-        <!-- Success Checkmark -->
-        <svg class="checkmark-svg" viewBox="0 0 24 24">
-          <path class="checkmark-path" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M20 6L9 17l-5-5" />
-        </svg>
+          <div class="waveform" id="waveform">
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+          </div>
+
+          <div id="progress-indicator">
+            <span class="progress-track"></span>
+            <span class="progress-head"></span>
+          </div>
+
+          <svg class="status-icon checkmark-svg" viewBox="0 0 24 24">
+            <path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.75" />
+          </svg>
+
+          <svg class="status-icon warning-svg" viewBox="0 0 24 24">
+            <path d="M12 3 2.7 19.2A1.4 1.4 0 0 0 3.92 21h16.16a1.4 1.4 0 0 0 1.22-1.8L12 3Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" />
+            <path d="M12 9v4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" />
+            <circle cx="12" cy="16.5" r="1.1" fill="currentColor" />
+          </svg>
+        </div>
+
+        <div class="status-copy">
+          <span id="status-text">Ready</span>
+          <span id="status-subtext">Option+Space to dictate · Right-click for settings</span>
+        </div>
+
+        <span id="timer">0:00</span>
+
+        <button id="menu-button" class="icon-button" type="button" aria-label="Open menu">
+          <span></span><span></span><span></span>
+        </button>
       </div>
-
-      <!-- Status Label -->
-      <span id="status-text">Ready</span>
-
-      <!-- Timer Counter -->
-      <span id="timer">0:00</span>
     </main>
 
-    <!-- Main App Script -->
+    <main id="settings-view" hidden>
+      <header class="settings-shell-header" data-tauri-drag-region>
+        <div>
+          <p class="settings-eyebrow">Sooper-Wisper</p>
+          <h1>Settings</h1>
+          <p class="settings-shell-copy">Modes, prompt instructions, vocabulary, and app rules now live here.</p>
+        </div>
+
+        <div class="settings-header-actions">
+          <label class="settings-search" aria-label="Search settings">
+            <span class="settings-search-icon">⌘</span>
+            <input id="settings-search" type="search" placeholder="Search settings (stub)" />
+          </label>
+          <button id="pair-device-button" class="secondary-button" type="button" disabled>Pair device via QR</button>
+          <button id="settings-done" class="secondary-button" type="button">Done</button>
+        </div>
+      </header>
+
+      <div class="settings-shell-body">
+        <aside class="settings-sidebar">
+          <div class="settings-sidebar-card">
+            <p class="sidebar-title">Configuration</p>
+            <nav class="settings-nav" aria-label="Settings sections">
+              <button class="settings-nav-button active" type="button" data-settings-section="modes">Modes</button>
+              <button class="settings-nav-button" type="button" data-settings-section="models">Models Library</button>
+              <button class="settings-nav-button" type="button" data-settings-section="vocabulary">Vocabulary &amp; Custom Replacements</button>
+              <button class="settings-nav-button" type="button" data-settings-section="shortcuts">Keyboard &amp; Touch Shortcuts</button>
+              <button class="settings-nav-button" type="button" data-settings-section="privacy">Advanced &amp; Privacy</button>
+            </nav>
+          </div>
+
+          <div class="settings-sidebar-card sidebar-status-card">
+            <p class="sidebar-title">Status</p>
+            <p id="sidebar-provider-status">Local Whisper is active.</p>
+            <p id="sidebar-privacy-status" class="muted-copy">Audio stays on-device in local mode.</p>
+            <p id="sidebar-mode-status" class="muted-copy">Default mode: Note.</p>
+          </div>
+        </aside>
+
+        <section class="settings-detail" aria-live="polite">
+          <section class="settings-pane active" data-settings-pane="modes">
+            <div class="pane-header">
+              <div>
+                <p class="pane-kicker">Modes</p>
+                <h2>Mode editor</h2>
+                <p class="pane-copy">Create a custom mode, tune prompt instructions, add examples, and pick the default.</p>
+              </div>
+            </div>
+
+            <div class="settings-card-grid mode-grid">
+              <article class="settings-card">
+                <div class="card-header-row">
+                  <div>
+                    <h3>Available modes</h3>
+                    <p class="muted-copy">Built-ins stay, customs are yours.</p>
+                  </div>
+                  <button id="add-custom-mode" class="secondary-button compact-button" type="button">New custom mode</button>
+                </div>
+                <div id="mode-list" class="mode-list"></div>
+              </article>
+
+              <article class="settings-card">
+                <div class="card-header-row">
+                  <div>
+                    <h3 id="mode-editor-title">Mode details</h3>
+                    <p class="muted-copy">Stored as plain config, no extra machinery.</p>
+                  </div>
+                  <div class="editor-actions">
+                    <button id="make-default-mode" class="secondary-button compact-button" type="button">Make default</button>
+                    <button id="delete-mode" class="secondary-button compact-button danger-button" type="button">Delete</button>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <span class="field-label">Mode name</span>
+                  <input id="mode-name-input" type="text" placeholder="Custom mode name" />
+                </div>
+
+                <div class="field">
+                  <span class="field-label">AI prompt instructions</span>
+                  <textarea id="mode-prompt-input" rows="6" placeholder="Describe how the transcript should be formatted"></textarea>
+                </div>
+
+                <div class="field">
+                  <span class="field-label">Context injection</span>
+                  <div class="toggle-grid">
+                    <label class="toggle-row"><input id="context-selection" type="checkbox" /> <span>Incorporate selection context</span></label>
+                    <label class="toggle-row"><input id="context-clipboard" type="checkbox" /> <span>Incorporate clipboard context</span></label>
+                    <label class="toggle-row"><input id="context-application" type="checkbox" /> <span>Incorporate application context</span></label>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <div class="card-header-row small-gap">
+                    <span class="field-label">Few-shot examples</span>
+                    <button id="add-example" class="secondary-button compact-button" type="button">Add example</button>
+                  </div>
+                  <div id="mode-examples" class="stack-list"></div>
+                </div>
+
+                <div class="field">
+                  <span class="field-label">Prompt preview</span>
+                  <pre id="mode-preview" class="prompt-preview"></pre>
+                </div>
+              </article>
+            </div>
+
+            <article class="settings-card top-gap">
+              <div class="card-header-row">
+                <div>
+                  <h3>Auto-activation app rules</h3>
+                  <p class="muted-copy">Map an app to a mode. Matching behavior can come later; config ships now.</p>
+                </div>
+                <button id="add-app-rule" class="secondary-button compact-button" type="button">Add rule</button>
+              </div>
+              <div id="app-rules" class="stack-list top-gap-small"></div>
+            </article>
+          </section>
+
+          <section class="settings-pane" data-settings-pane="models" hidden>
+            <div class="pane-header">
+              <div>
+                <p class="pane-kicker">Models Library</p>
+                <h2>Backend and model selection</h2>
+                <p class="pane-copy">Downloads can wait. Provider switching is real now.</p>
+              </div>
+            </div>
+
+            <div class="settings-card-grid">
+              <article class="settings-card">
+                <h3>Transcriber backend</h3>
+                <label class="field">
+                  <span class="field-label">Transcriber</span>
+                  <select id="provider-select">
+                    <option value="local-whisper">Local (Whisper)</option>
+                    <option value="nvidia-parakeet">Cloud (Parakeet)</option>
+                  </select>
+                </label>
+
+                <label class="field" id="api-key-row" hidden>
+                  <span class="field-label">NVIDIA API key</span>
+                  <input id="api-key-input" type="password" placeholder="Paste your NVIDIA API key" autocomplete="off" />
+                </label>
+
+                <p id="provider-help" class="muted-copy">Local mode runs on-device with Whisper.</p>
+              </article>
+
+              <article class="settings-card stub-card">
+                <h3>Model downloads</h3>
+                <p>Whisper size management and downloadable libraries still wait on backend support.</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="settings-pane" data-settings-pane="vocabulary" hidden>
+            <div class="pane-header">
+              <div>
+                <p class="pane-kicker">Vocabulary</p>
+                <h2>Custom replacements</h2>
+                <p class="pane-copy">Teach the app your names, jargon, and corrections.</p>
+              </div>
+            </div>
+
+            <article class="settings-card">
+              <div class="card-header-row">
+                <div>
+                  <h3>Replacement grid</h3>
+                  <p class="muted-copy">Simple in, simple out.</p>
+                </div>
+                <button id="add-vocabulary-item" class="secondary-button compact-button" type="button">Add replacement</button>
+              </div>
+              <div id="vocabulary-list" class="stack-list top-gap-small"></div>
+            </article>
+          </section>
+
+          <section class="settings-pane" data-settings-pane="shortcuts" hidden>
+            <div class="pane-header">
+              <div>
+                <p class="pane-kicker">Keyboard &amp; Touch Shortcuts</p>
+                <h2>Current shortcuts</h2>
+                <p class="pane-copy">These are the live shortcut bindings from the app.</p>
+              </div>
+            </div>
+
+            <div class="settings-card-grid single-column">
+              <article class="settings-card shortcut-card">
+                <div>
+                  <h3>Start / stop dictation</h3>
+                  <p class="muted-copy">Use this anywhere to toggle recording.</p>
+                </div>
+                <kbd id="dictation-shortcut">Option+Space</kbd>
+              </article>
+
+              <article class="settings-card shortcut-card">
+                <div>
+                  <h3>Open settings</h3>
+                  <p class="muted-copy">Tray click and right-click menu land here too.</p>
+                </div>
+                <kbd id="settings-shortcut">Option+Shift+Space</kbd>
+              </article>
+            </div>
+          </section>
+
+          <section class="settings-pane" data-settings-pane="privacy" hidden>
+            <div class="pane-header">
+              <div>
+                <p class="pane-kicker">Advanced &amp; Privacy</p>
+                <h2>Data path</h2>
+                <p class="pane-copy">Keep the explanation honest until the deeper privacy controls ship.</p>
+              </div>
+            </div>
+
+            <div class="settings-card-grid single-column">
+              <article class="settings-card">
+                <h3>Local Whisper</h3>
+                <p>Audio stays on this Mac for transcription. The local model file may be downloaded once and cached in app data.</p>
+              </article>
+
+              <article class="settings-card">
+                <h3>Cloud Parakeet</h3>
+                <p>Audio is uploaded to NVIDIA for transcription when cloud mode is active. Your API key is still stored in settings JSON for now; Keychain migration is Phase 4.</p>
+              </article>
+            </div>
+          </section>
+
+          <footer class="settings-footer">
+            <p id="settings-hint">Option+Shift+Space opens this window. Search and QR pairing stay stubbed for now.</p>
+            <button id="save-settings" class="primary-button" type="button">Save</button>
+          </footer>
+        </section>
+      </div>
+    </main>
+
+    <div id="context-menu" hidden>
+      <button type="button" data-menu-action="settings">Settings</button>
+      <button type="button" data-menu-action="api-key">Cloud API key</button>
+    </div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

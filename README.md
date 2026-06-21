@@ -16,7 +16,6 @@ Sooper-Wisper is a lightweight, system-wide background macOS helper tool inspire
     *   **Success**: Emerald checkmark confirming text insertion.
 *   **Automatic Model Management**: Automatically downloads the lightweight `ggml-tiny.en.bin` (~75MB) model on the first startup if no model is found locally.
 *   **Smart Clipboard Restore**: Copies the transcription, simulates keyboard paste (`Cmd + V`), and restores the user's previous clipboard contents automatically after a 200ms delay.
-
 ---
 
 ## Tech Stack
