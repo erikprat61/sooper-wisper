@@ -121,7 +121,7 @@ Don’t build XML generation machinery everywhere in the UI. Just store structur
 
 ---
 
-### Phase 4 — Security and correctness features from the spec [IN PROGRESS]
+### Phase 4 — Security and correctness features from the spec [COMPLETED]
 This is where the app stops being “nice demo UI” and becomes trustworthy.
 
 #### Scope
@@ -146,7 +146,7 @@ This is where the app stops being “nice demo UI” and becomes trustworthy.
 
 ---
 
-### Phase 5 — Onboarding playground and final native polish
+### Phase 5 — Onboarding playground and final native polish [IN PROGRESS]
 Only after the main app flow is solid.
 
 #### Scope
