@@ -667,65 +667,70 @@ async function handleShortcutTrigger() {
     transitionTo('recording');
 
     (async () => {
-      let activeApp = 'Finder';
-      try {
-        activeApp = await invoke('get_active_app');
-      } catch (e) {
-        console.error('Failed to get active app:', e);
-      }
-      
-      const modeId = getModeForApp(settings, activeApp);
-      const mode = getModeById(settings, modeId);
+      const recordPromise = recorder.start(
+        (seconds) => {
+          timer.textContent = formatTime(seconds);
+        },
+        (level) => {
+          setWaveformLevel(level);
+        },
+      );
 
-      let selection = '';
-      if (mode?.context.selection) {
+      const contextPromise = (async () => {
+        let activeApp = 'Finder';
         try {
-          selection = await invoke('get_selection_text');
+          activeApp = await invoke('get_active_app');
         } catch (e) {
-          console.error('Failed to get selection:', e);
+          console.error('Failed to get active app:', e);
         }
-      }
 
-      let clipboardText = '';
-      if (mode?.context.clipboard) {
-        try {
-          clipboardText = await invoke('get_clipboard_text');
-        } catch (e) {
-          console.error('Failed to get clipboard:', e);
+        const modeId = getModeForApp(settings, activeApp);
+        const mode = getModeById(settings, modeId);
+
+        let selection = '';
+        if (mode?.context.selection) {
+          try {
+            selection = await invoke('get_selection_text');
+          } catch (e) {
+            console.error('Failed to get selection:', e);
+          }
         }
-      }
 
-      capturedContext = {
-        appName: activeApp,
-        selection,
-        clipboard: clipboardText,
-        modeId: mode?.id || settings.defaultModeId,
-      };
-
-      if (currentState === 'recording') {
-        const activeMode = getModeById(settings, capturedContext.modeId);
-        const status = getStateStatus({
-          state: 'recording',
-          isCloud: isCloud(),
-          waveformMode,
-          shortcuts: uiMetadata,
-          activeModeName: activeMode?.name,
-        });
-        if (status) {
-          statusText.textContent = status.text;
-          statusSubtext.textContent = status.subtext;
+        let clipboardText = '';
+        if (mode?.context.clipboard) {
+          try {
+            clipboardText = await invoke('get_clipboard_text');
+          } catch (e) {
+            console.error('Failed to get clipboard:', e);
+          }
         }
-      }
+
+        return {
+          appName: activeApp,
+          selection,
+          clipboard: clipboardText,
+          modeId: mode?.id || settings.defaultModeId,
+        };
+      })();
 
       try {
-        await recorder.start(
-          (seconds) => {
-            timer.textContent = formatTime(seconds);
-          },
-          (level) => {
-            setWaveformLevel(level);
-          },
-        );
+        const [_, context] = await Promise.all([recordPromise, contextPromise]);
+        capturedContext = context;
+
+        if (currentState === 'recording') {
+          const activeMode = getModeById(settings, capturedContext.modeId);
+          const status = getStateStatus({
+            state: 'recording',
+            isCloud: isCloud(),
+            waveformMode,
+            shortcuts: uiMetadata,
+            activeModeName: activeMode?.name,
+          });
+          if (status) {
+            statusText.textContent = status.text;
+            statusSubtext.textContent = status.subtext;
+          }
+        }
       } catch (err) {
         console.error(err);
         showError(
