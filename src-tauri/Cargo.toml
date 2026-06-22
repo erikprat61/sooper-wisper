@@ -23,3 +23,4 @@ reqwest = { version = "0.12", features = ["json", "multipart", "blocking"] }
 tokio = { version = "1", features = ["full"] }
 dotenvy = "0.15"
 whisper-rs = { version = "0.14" }
+keyring = "4.1.2"

@@ -62,6 +62,7 @@ struct AppRule {
 struct AppConfig {
     provider: String,
     nvidia_api_key: String,
+    auto_purge: bool,
     modes: Vec<ModeConfig>,
     default_mode_id: String,
     vocabulary_replacements: Vec<VocabularyReplacement>,
@@ -83,6 +84,7 @@ impl Default for AppConfig {
                 .unwrap_or_default()
                 .trim()
                 .to_string(),
+            auto_purge: true,
             modes: default_modes(),
             default_mode_id: DEFAULT_MODE_ID.to_string(),
             vocabulary_replacements: Vec::new(),
@@ -347,20 +349,38 @@ fn config_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 fn load_config(app_handle: &tauri::AppHandle) -> Result<AppConfig, String> {
     let path = config_path(app_handle)?;
-    if !path.exists() {
-        return Ok(AppConfig::default());
+    let mut config = if !path.exists() {
+        AppConfig::default()
+    } else {
+        let raw = std::fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read settings file at {:?}: {}", path, e))?;
+        serde_json::from_str::<AppConfig>(&raw).unwrap_or_default()
+    };
+
+    let mut has_keychain_key = false;
+    if let Ok(entry) = keyring::Entry::new("sooper-wisper", "nvidia_api_key") {
+        if let Ok(password) = entry.get_password() {
+            let key = password.trim().to_string();
+            if !key.is_empty() {
+                config.nvidia_api_key = key;
+                has_keychain_key = true;
+            }
+        }
     }
 
-    let raw = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read settings file at {:?}: {}", path, e))?;
+    if !has_keychain_key && !config.nvidia_api_key.trim().is_empty() {
+        if let Ok(entry) = keyring::Entry::new("sooper-wisper", "nvidia_api_key") {
+            let _ = entry.set_password(&config.nvidia_api_key);
+        }
+    }
 
-    let config = serde_json::from_str::<AppConfig>(&raw).unwrap_or_default();
     Ok(normalize_config(config))
 }
 
 fn save_config(app_handle: &tauri::AppHandle, config: &AppConfig) -> Result<(), String> {
     let path = config_path(app_handle)?;
-    let normalized = normalize_config(config.clone());
+    let mut normalized = normalize_config(config.clone());
+    normalized.nvidia_api_key = String::new();
     let raw = serde_json::to_string_pretty(&normalized)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
 
@@ -616,6 +636,15 @@ fn save_settings(
 ) -> Result<AppConfig, String> {
     let config = normalize_config(config);
 
+    if let Ok(entry) = keyring::Entry::new("sooper-wisper", "nvidia_api_key") {
+        let trimmed_key = config.nvidia_api_key.trim();
+        if !trimmed_key.is_empty() {
+            let _ = entry.set_password(trimmed_key);
+        } else {
+            let _ = entry.delete_credential();
+        }
+    }
+
     save_config(&app, &config)?;
 
     let mut guard = state
@@ -663,8 +692,24 @@ async fn transcribe_audio(
 }
 
 #[tauri::command]
-async fn paste_text(app: tauri::AppHandle, text: String) -> Result<(), String> {
+async fn paste_text(
+    app: tauri::AppHandle,
+    text: String,
+    target_app: Option<String>,
+) -> Result<(), String> {
     let _ = app.emit("hud-state", serde_json::json!({ "state": "pasting" }));
+
+    if let Some(app_name) = target_app {
+        let app_name = app_name.trim();
+        if !app_name.is_empty() && app_name != "Finder" {
+            let script = format!("tell application \"{}\" to activate", app_name);
+            let _ = std::process::Command::new("osascript")
+                .arg("-e")
+                .arg(&script)
+                .output();
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        }
+    }
 
     let clipboard = app.clipboard();
     let previous_text = clipboard.read_text().ok();
@@ -682,12 +727,23 @@ async fn paste_text(app: tauri::AppHandle, text: String) -> Result<(), String> {
     if let Some(prev) = previous_text {
         let app_clone = app.clone();
         tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
             let cb = app_clone.clipboard();
             let _ = cb.write_text(prev);
         });
     }
 
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_microphone_settings() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
+            .spawn();
+    }
     Ok(())
 }
 
@@ -926,6 +982,7 @@ pub fn run() {
             get_ui_metadata,
             transcribe_audio,
             paste_text,
+            open_microphone_settings,
             toggle_click_through,
             hide_window,
             resize_window,
@@ -965,6 +1022,7 @@ mod tests {
     fn normalize_config_backfills_phase_three_defaults() {
         let config = normalize_config(AppConfig::default());
         assert_eq!(config.default_mode_id, "note");
+        assert_eq!(config.auto_purge, true);
         assert_eq!(config.modes.len(), 3);
         assert!(config.modes.iter().any(|mode| mode.id == "email"));
     }

@@ -105,6 +105,7 @@ export function normalizeSettingsConfig(config = {}) {
   return {
     provider: config.provider === 'nvidia-parakeet' ? 'nvidia-parakeet' : 'local-whisper',
     nvidiaApiKey: `${config.nvidiaApiKey || ''}`.trim(),
+    autoPurge: config.autoPurge !== false,
     modes,
     defaultModeId,
     vocabularyReplacements: (Array.isArray(config.vocabularyReplacements) ? config.vocabularyReplacements : [])

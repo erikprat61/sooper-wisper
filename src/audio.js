@@ -134,6 +134,7 @@ export class AudioRecorder {
   }
 
   cleanup() {
+    this.audioBuffers = [];
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach((track) => track.stop());
       this.mediaStream = null;

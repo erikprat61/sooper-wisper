@@ -20,7 +20,7 @@ Based on `ui-spec.md` and the current Sooper-Wisper app.
 
 ## Phased UI upgrade plan
 
-### Phase 1 — Make the overlay match the spec
+### Phase 1 — Make the overlay match the spec [COMPLETED]
 Keep one job: upgrade the existing HUD, no architecture detour.
 
 #### Scope
@@ -51,7 +51,7 @@ Keep one job: upgrade the existing HUD, no architecture detour.
 
 ---
 
-### Phase 2 — Pull settings out into a real settings window
+### Phase 2 — Pull settings out into a real settings window [COMPLETED]
 Do this next. The inline HUD settings are already too cramped.
 
 #### Scope
@@ -84,7 +84,7 @@ Create a dedicated `/settings` view/window with:
 
 ---
 
-### Phase 3 — Add modes, prompt builder, and vocabulary
+### Phase 3 — Add modes, prompt builder, and vocabulary [COMPLETED]
 This is the first feature phase, not just polish.
 
 #### Scope
@@ -121,7 +121,7 @@ Don’t build XML generation machinery everywhere in the UI. Just store structur
 
 ---
 
-### Phase 4 — Security and correctness features from the spec
+### Phase 4 — Security and correctness features from the spec [IN PROGRESS]
 This is where the app stops being “nice demo UI” and becomes trustworthy.
 
 #### Scope

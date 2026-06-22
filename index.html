@@ -275,7 +275,18 @@
 
               <article class="settings-card">
                 <h3>Cloud Parakeet</h3>
-                <p>Audio is uploaded to NVIDIA for transcription when cloud mode is active. Your API key is still stored in settings JSON for now; Keychain migration is Phase 4.</p>
+                <p>Audio is uploaded to NVIDIA for transcription when cloud mode is active. Your API key is securely stored in the macOS Keychain.</p>
+              </article>
+
+              <article class="settings-card">
+                <h3>Privacy Settings</h3>
+                <div class="toggle-grid">
+                  <label class="toggle-row">
+                    <input id="auto-purge-input" type="checkbox" />
+                    <span>Auto-Purge Voice Recording After Successful Paste</span>
+                  </label>
+                </div>
+                <p class="muted-copy top-gap-small">Immediately clears raw audio samples from memory following a successful transcription paste operation.</p>
               </article>
             </div>
           </section>

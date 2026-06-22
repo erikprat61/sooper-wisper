@@ -64,6 +64,7 @@ const sidebarPrivacyStatus = document.getElementById('sidebar-privacy-status');
 const sidebarModeStatus = document.getElementById('sidebar-mode-status');
 const dictationShortcut = document.getElementById('dictation-shortcut');
 const settingsShortcut = document.getElementById('settings-shortcut');
+const autoPurgeInput = document.getElementById('auto-purge-input');
 const settingsNavButtons = [...document.querySelectorAll('[data-settings-section]')];
 const settingsPanes = [...document.querySelectorAll('[data-settings-pane]')];
 
@@ -333,8 +334,12 @@ function syncSettingsUI() {
   sidebarProviderStatus.textContent = isCloud()
     ? 'NVIDIA Parakeet is active.'
     : 'Local Whisper is active.';
+  if (autoPurgeInput) {
+    autoPurgeInput.checked = settings.autoPurge;
+  }
+
   sidebarPrivacyStatus.textContent = isCloud()
-    ? 'Cloud mode sends audio to NVIDIA. Keychain storage lands in Phase 4.'
+    ? 'Cloud mode sends audio to NVIDIA. Keychain storage is active.'
     : 'Audio stays on-device in local mode.';
   sidebarModeStatus.textContent = `Default mode: ${getModeById(settings, settings.defaultModeId)?.name || 'Note'}.`;
 
@@ -709,7 +714,11 @@ async function handleShortcutTrigger() {
         );
       } catch (err) {
         console.error(err);
-        showError('Mic error', null, 'Check microphone permission in Settings');
+        showError(
+          'Mic error',
+          () => invoke('open_microphone_settings').catch(console.error),
+          'Click to open System Microphone settings',
+        );
       }
     })();
     return;
@@ -727,6 +736,10 @@ async function handleShortcutTrigger() {
       }
 
       const text = await invoke('transcribe_audio', { audioBytes: Array.from(wavBytes) });
+      if (settings.autoPurge) {
+        wavBytes.fill(0);
+      }
+
       if (!text || !text.trim()) {
         showError('No speech detected', null, 'Try again or check microphone input');
         return;
@@ -745,7 +758,7 @@ async function handleShortcutTrigger() {
       }
 
       transitionTo('pasting');
-      await invoke('paste_text', { text: processedText });
+      await invoke('paste_text', { text: processedText, targetApp: capturedContext.appName });
       resetTimeout = setTimeout(() => transitionTo('idle'), 900);
     } catch (err) {
       console.error(err);
@@ -783,6 +796,12 @@ providerSelect.addEventListener('change', () => {
 apiKeyInput.addEventListener('input', () => {
   settings.nvidiaApiKey = apiKeyInput.value.trim();
 });
+
+if (autoPurgeInput) {
+  autoPurgeInput.addEventListener('change', () => {
+    settings.autoPurge = autoPurgeInput.checked;
+  });
+}
 
 addCustomModeButton.addEventListener('click', () => {
   addCustomMode();
