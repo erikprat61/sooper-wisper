@@ -26,6 +26,21 @@
         "skipTaskbar": true,
         "resizable": false,
         "fullscreen": false
+      },
+      {
+        "label": "settings",
+        "title": "Sooper-Wisper Settings",
+        "width": 1100,
+        "height": 760,
+        "decorations": true,
+        "transparent": false,
+        "shadow": true,
+        "visible": false,
+        "focusable": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "resizable": true,
+        "fullscreen": false
       }
     ],
     "security": {

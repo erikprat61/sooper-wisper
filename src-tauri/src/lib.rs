@@ -624,6 +624,8 @@ fn save_settings(
         .map_err(|_| "Failed to acquire lock on settings".to_string())?;
     *guard = config.clone();
 
+    let _ = app.emit("settings-changed", config.clone());
+
     Ok(config)
 }
 
@@ -697,10 +699,87 @@ async fn toggle_click_through(window: tauri::Window, ignore: bool) -> Result<(),
 }
 
 #[tauri::command]
+async fn get_active_app() -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg("tell application \"System Events\" to name of first application process whose frontmost is true")
+            .output();
+
+        match output {
+            Ok(out) => {
+                let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if name.is_empty() {
+                    Ok("Finder".to_string())
+                } else {
+                    Ok(name)
+                }
+            }
+            Err(_) => Ok("Finder".to_string()),
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok("Finder".to_string())
+    }
+}
+
+#[tauri::command]
+async fn get_selection_text(app: tauri::AppHandle) -> Result<String, String> {
+    let clipboard = app.clipboard();
+    let previous_text = clipboard.read_text().ok();
+
+    // Simulate Command+C
+    let output = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg("tell application \"System Events\" to keystroke \"c\" using {command down}")
+        .output();
+
+    if output.is_ok() {
+        // Sleep briefly to let the clipboard update
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        let selected_text = clipboard.read_text().unwrap_or_default();
+
+        // Restore clipboard
+        if let Some(prev) = previous_text {
+            let _ = clipboard.write_text(prev);
+        }
+
+        Ok(selected_text)
+    } else {
+        Ok(String::new())
+    }
+}
+
+#[tauri::command]
+async fn get_clipboard_text(app: tauri::AppHandle) -> Result<String, String> {
+    let clipboard = app.clipboard();
+    Ok(clipboard.read_text().unwrap_or_default())
+}
+
+#[tauri::command]
 async fn hide_window(window: tauri::Window) -> Result<(), String> {
     window
         .hide()
         .map_err(|e| format!("Failed to hide window: {}", e))
+}
+
+#[tauri::command]
+async fn show_settings_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(settings_window) = app.get_webview_window("settings") {
+        settings_window.show().map_err(|e| e.to_string())?;
+        settings_window.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn hide_settings_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(settings_window) = app.get_webview_window("settings") {
+        settings_window.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -849,7 +928,12 @@ pub fn run() {
             paste_text,
             toggle_click_through,
             hide_window,
-            resize_window
+            resize_window,
+            get_active_app,
+            get_selection_text,
+            get_clipboard_text,
+            show_settings_window,
+            hide_settings_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

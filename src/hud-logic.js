@@ -26,7 +26,7 @@ export function getEscapeAction({ currentState, settingsOpen }) {
   return null;
 }
 
-export function getStateStatus({ state, isCloud, waveformMode, shortcuts }) {
+export function getStateStatus({ state, isCloud, waveformMode, shortcuts, activeModeName }) {
   const dictationShortcut = shortcuts?.dictationShortcut || 'Option+Space';
 
   switch (state) {
@@ -35,13 +35,15 @@ export function getStateStatus({ state, isCloud, waveformMode, shortcuts }) {
         text: 'Ready',
         subtext: `${isCloud ? 'Cloud' : 'Local'} mode · ${dictationShortcut} to dictate`,
       };
-    case 'recording':
+    case 'recording': {
+      const modeSuffix = activeModeName ? ` (${activeModeName})` : '';
       return {
-        text: 'Recording',
+        text: `Recording${modeSuffix}`,
         subtext: waveformMode === 'system'
           ? 'Capturing system audio'
           : 'Press Option+Space again to stop',
       };
+    }
     case 'processing':
       return {
         text: 'Processing',

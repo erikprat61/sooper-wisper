@@ -140,3 +140,54 @@ export function buildPromptPreview(mode) {
   lines.push('</mode>');
   return lines.join('\n');
 }
+
+export function getModeForApp(config, appName) {
+  if (!appName) return config.defaultModeId || 'note';
+  const normalizedApp = appName.trim().toLowerCase();
+  const rule = config.appRules?.find(
+    (r) => r.appName && r.appName.trim().toLowerCase() === normalizedApp
+  );
+  return rule ? rule.modeId : (config.defaultModeId || 'note');
+}
+
+export function applyVocabularyReplacements(text, replacements = []) {
+  if (!text) return '';
+  let result = text;
+  for (const item of replacements) {
+    if (!item.from || !item.from.trim()) continue;
+    const escapedFrom = item.from.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(escapedFrom, 'gi');
+    result = result.replace(regex, item.to || '');
+  }
+  return result;
+}
+
+export function buildUseTimePrompt(mode, transcript, context = {}, isDefault = false) {
+  if (!mode || isDefault) return transcript;
+
+  const lines = [
+    `<mode name="${mode.name}">`,
+    `  <instructions>${mode.prompt}</instructions>`,
+  ];
+
+  const selectionVal = mode.context.selection ? (context.selection || '') : 'false';
+  const clipboardVal = mode.context.clipboard ? (context.clipboard || '') : 'false';
+  const appVal = mode.context.application ? (context.application || '') : 'false';
+
+  lines.push(`  <context selection="${selectionVal}" clipboard="${clipboardVal}" application="${appVal}" />`);
+
+  if (mode.examples && mode.examples.length) {
+    lines.push('  <examples>');
+    mode.examples.forEach((example) => {
+      lines.push(`    <example input="${example.userInputRaw}">${example.expectedOutputFormatted}</example>`);
+    });
+    lines.push('  </examples>');
+  }
+
+  lines.push('  <transcript>');
+  lines.push(`    ${transcript}`);
+  lines.push('  </transcript>');
+  lines.push('</mode>');
+
+  return lines.join('\n');
+}

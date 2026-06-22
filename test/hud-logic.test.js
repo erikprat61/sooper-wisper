@@ -60,6 +60,11 @@ test('status copy matches expected flow states', () => {
     subtext: 'Press Option+Space again to stop',
   });
 
+  assert.deepEqual(getStateStatus({ state: 'recording', isCloud: false, waveformMode: 'mic', activeModeName: 'Email' }), {
+    text: 'Recording (Email)',
+    subtext: 'Press Option+Space again to stop',
+  });
+
   assert.deepEqual(getStateStatus({ state: 'recording', isCloud: false, waveformMode: 'system' }), {
     text: 'Recording',
     subtext: 'Capturing system audio',

@@ -4,7 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { AudioRecorder } from './audio.js';
 import { getEscapeAction, getStateStatus, getWaveBarScale, shouldShowHud } from './hud-logic.js';
-import { buildPromptPreview, getModeById, makeId, normalizeSettingsConfig } from './settings-logic.js';
+import { buildPromptPreview, getModeById, makeId, normalizeSettingsConfig, getModeForApp, applyVocabularyReplacements, buildUseTimePrompt } from './settings-logic.js';
 
 const HUD_WINDOW_SIZE = { width: 388, height: 88 };
 const SETTINGS_WINDOW_SIZE = { width: 1100, height: 760 };
@@ -12,7 +12,8 @@ const SETTINGS_SECTIONS = ['modes', 'models', 'vocabulary', 'shortcuts', 'privac
 const DEFAULT_SETTINGS_HINT = 'Search and QR pairing stay stubbed for now.';
 
 const appWindow = getCurrentWindow();
-const recorder = new AudioRecorder();
+const isSettingsWindow = appWindow.label === 'settings';
+const recorder = isSettingsWindow ? null : new AudioRecorder();
 
 let currentState = 'idle';
 let errorTimeout = null;
@@ -31,6 +32,12 @@ let uiMetadata = {
   settingsShortcut: 'Option+Shift+Space',
 };
 let settings = normalizeSettingsConfig();
+let capturedContext = {
+  appName: '',
+  selection: '',
+  clipboard: '',
+  modeId: '',
+};
 
 const body = document.body;
 const hud = document.getElementById('hud');
@@ -93,6 +100,7 @@ function setWindowSize(size) {
 }
 
 function showWindow() {
+  if (isSettingsWindow) return;
   windowHidden = false;
   hud.classList.remove('window-hidden');
   appWindow.show().catch(console.error);
@@ -100,6 +108,7 @@ function showWindow() {
 }
 
 function hideWindowOnly() {
+  if (isSettingsWindow) return;
   windowHidden = true;
   closeContextMenu();
   hud.classList.add('window-hidden');
@@ -107,6 +116,7 @@ function hideWindowOnly() {
 }
 
 function syncWindowVisibility() {
+  if (isSettingsWindow) return;
   if (shouldShowHud({ currentState, settingsOpen })) {
     showWindow();
     return;
@@ -381,33 +391,49 @@ function setActiveSettingsSection(section = 'modes') {
 }
 
 function applySettingsViewState() {
-  body.dataset.view = settingsOpen ? 'settings' : 'hud';
-  settingsView.hidden = !settingsOpen;
-  hud.setAttribute('aria-hidden', String(settingsOpen));
-  setWindowSize(settingsOpen ? SETTINGS_WINDOW_SIZE : HUD_WINDOW_SIZE);
+  const isSettings = appWindow.label === 'settings' || settingsOpen;
+  body.dataset.view = isSettings ? 'settings' : 'hud';
+  settingsView.hidden = !isSettings;
+  hud.setAttribute('aria-hidden', String(isSettings));
+
+  if (appWindow.label === 'main') {
+    try {
+      appWindow.setDecorations(false).catch(console.error);
+      appWindow.setShadow(false).catch(console.error);
+      appWindow.setAlwaysOnTop(true).catch(console.error);
+      appWindow.setResizable(false).catch(console.error);
+    } catch (err) {
+      console.error('Failed to update window attributes:', err);
+    }
+    setWindowSize(HUD_WINDOW_SIZE);
+  } else {
+    try {
+      appWindow.setDecorations(true).catch(console.error);
+      appWindow.setShadow(true).catch(console.error);
+      appWindow.setAlwaysOnTop(false).catch(console.error);
+      appWindow.setResizable(true).catch(console.error);
+    } catch (err) {
+      console.error('Failed to update window attributes:', err);
+    }
+    setWindowSize(SETTINGS_WINDOW_SIZE);
+  }
 }
 
 function closeSettings() {
-  settingsOpen = false;
-  applySettingsViewState();
-
-  if (currentState === 'idle') {
-    syncSettingsUI();
+  if (appWindow.label === 'settings') {
+    invoke('hide_settings_window').catch(console.error);
   }
-
-  syncWindowVisibility();
 }
 
 function openSettings({ focusApiKey = false, section = 'modes', hintText = null } = {}) {
-  if (currentState === 'recording' || currentState === 'processing' || currentState === 'pasting') {
+  if (appWindow.label === 'main') {
+    invoke('show_settings_window').catch(console.error);
+    appWindow.emit('focus-settings-section', { focusApiKey, section, hintText }).catch(console.error);
     return;
   }
 
-  if (focusApiKey) {
-    settings.provider = 'nvidia-parakeet';
-  }
-
-  showWindow();
+  appWindow.show().catch(console.error);
+  appWindow.focus().catch(console.error);
   closeContextMenu();
   settingsOpen = true;
   applySettingsViewState();
@@ -432,6 +458,7 @@ function openSettings({ focusApiKey = false, section = 'modes', hintText = null 
 }
 
 function transitionTo(state) {
+  if (isSettingsWindow) return;
   clearStateTimers();
   if (state !== 'idle' && settingsOpen) {
     closeSettings();
@@ -450,7 +477,14 @@ function transitionTo(state) {
     timer.textContent = '0:00';
     syncSettingsUI();
   } else {
-    const status = getStateStatus({ state, isCloud: isCloud(), waveformMode, shortcuts: uiMetadata });
+    const activeMode = getModeById(settings, capturedContext.modeId || settings.defaultModeId);
+    const status = getStateStatus({
+      state,
+      isCloud: isCloud(),
+      waveformMode,
+      shortcuts: uiMetadata,
+      activeModeName: activeMode?.name,
+    });
     if (status) {
       if (state === 'recording') {
         timer.textContent = '0:00';
@@ -560,14 +594,24 @@ async function loadSettings() {
   syncShortcutUI();
   setWaveformMode('mic');
   applySettingsViewState();
-  transitionTo('idle');
 
-  if (isCloud() && !settings.nvidiaApiKey.trim()) {
-    openSettings({
-      focusApiKey: true,
-      section: 'models',
-      hintText: 'Cloud mode needs an NVIDIA API key. Paste it here, then click Save.',
-    });
+  if (appWindow.label === 'main') {
+    transitionTo('idle');
+
+    if (isCloud() && !settings.nvidiaApiKey.trim()) {
+      openSettings({
+        focusApiKey: true,
+        section: 'models',
+        hintText: 'Cloud mode needs an NVIDIA API key. Paste it here, then click Save.',
+      });
+    }
+  } else {
+    settingsOpen = true;
+    body.dataset.view = 'settings';
+    settingsView.hidden = false;
+    hud.hidden = true;
+    hud.setAttribute('aria-hidden', 'true');
+    syncSettingsUI();
   }
 }
 
@@ -603,19 +647,71 @@ async function handleShortcutTrigger() {
 
     transitionTo('recording');
 
-    try {
-      await recorder.start(
-        (seconds) => {
-          timer.textContent = formatTime(seconds);
-        },
-        (level) => {
-          setWaveformLevel(level);
-        },
-      );
-    } catch (err) {
-      console.error(err);
-      showError('Mic error', null, 'Check microphone permission in Settings');
-    }
+    (async () => {
+      let activeApp = 'Finder';
+      try {
+        activeApp = await invoke('get_active_app');
+      } catch (e) {
+        console.error('Failed to get active app:', e);
+      }
+      
+      const modeId = getModeForApp(settings, activeApp);
+      const mode = getModeById(settings, modeId);
+
+      let selection = '';
+      if (mode?.context.selection) {
+        try {
+          selection = await invoke('get_selection_text');
+        } catch (e) {
+          console.error('Failed to get selection:', e);
+        }
+      }
+
+      let clipboardText = '';
+      if (mode?.context.clipboard) {
+        try {
+          clipboardText = await invoke('get_clipboard_text');
+        } catch (e) {
+          console.error('Failed to get clipboard:', e);
+        }
+      }
+
+      capturedContext = {
+        appName: activeApp,
+        selection,
+        clipboard: clipboardText,
+        modeId: mode?.id || settings.defaultModeId,
+      };
+
+      if (currentState === 'recording') {
+        const activeMode = getModeById(settings, capturedContext.modeId);
+        const status = getStateStatus({
+          state: 'recording',
+          isCloud: isCloud(),
+          waveformMode,
+          shortcuts: uiMetadata,
+          activeModeName: activeMode?.name,
+        });
+        if (status) {
+          statusText.textContent = status.text;
+          statusSubtext.textContent = status.subtext;
+        }
+      }
+
+      try {
+        await recorder.start(
+          (seconds) => {
+            timer.textContent = formatTime(seconds);
+          },
+          (level) => {
+            setWaveformLevel(level);
+          },
+        );
+      } catch (err) {
+        console.error(err);
+        showError('Mic error', null, 'Check microphone permission in Settings');
+      }
+    })();
     return;
   }
 
@@ -636,8 +732,20 @@ async function handleShortcutTrigger() {
         return;
       }
 
+      let processedText = applyVocabularyReplacements(text, settings.vocabularyReplacements);
+
+      const activeMode = getModeById(settings, capturedContext.modeId || settings.defaultModeId);
+      if (activeMode) {
+        const isDefault = activeMode.id === settings.defaultModeId;
+        processedText = buildUseTimePrompt(activeMode, processedText, {
+          selection: capturedContext.selection,
+          clipboard: capturedContext.clipboard,
+          application: capturedContext.appName,
+        }, isDefault);
+      }
+
       transitionTo('pasting');
-      await invoke('paste_text', { text });
+      await invoke('paste_text', { text: processedText });
       resetTimeout = setTimeout(() => transitionTo('idle'), 900);
     } catch (err) {
       console.error(err);
@@ -870,17 +978,19 @@ hud.addEventListener('click', (event) => {
   }
 });
 
-hudRow.addEventListener('mousedown', (event) => {
-  if (event.button !== 0) return;
-  if (event.target.closest('button, input, select, textarea, a, label')) return;
-  appWindow.startDragging().catch(console.error);
-});
+if (!isSettingsWindow) {
+  hudRow.addEventListener('mousedown', (event) => {
+    if (event.button !== 0) return;
+    if (event.target.closest('button, input, select, textarea, a, label')) return;
+    appWindow.startDragging().catch(console.error);
+  });
 
-settingsHeader.addEventListener('mousedown', (event) => {
-  if (event.button !== 0) return;
-  if (event.target.closest('button, input, select, textarea, a, label')) return;
-  appWindow.startDragging().catch(console.error);
-});
+  settingsHeader.addEventListener('mousedown', (event) => {
+    if (event.button !== 0) return;
+    if (event.target.closest('button, input, select, textarea, a, label')) return;
+    appWindow.startDragging().catch(console.error);
+  });
+}
 
 document.addEventListener('click', (event) => {
   if (!menuOpen) return;
@@ -891,19 +1001,19 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
+    if (appWindow.label === 'settings') {
+      event.preventDefault();
+      invoke('hide_settings_window').catch(console.error);
+      return;
+    }
     const action = getEscapeAction({ currentState, settingsOpen });
     if (action === 'hide-processing') {
       hideWindowOnly();
       return;
     }
-    if (action === 'close-settings') {
-      closeSettings();
-      transitionTo('idle');
-      return;
-    }
   }
 
-  if (!settingsOpen) return;
+  if (appWindow.label !== 'settings') return;
 
   if (event.key === 'Enter' && (event.target === apiKeyInput || event.target === providerSelect)) {
     persistSettings().catch((err) => {
@@ -914,10 +1024,16 @@ document.addEventListener('keydown', (event) => {
 });
 
 listen('global-shortcut-pressed', () => {
+  if (appWindow.label !== 'main') return;
   handleShortcutTrigger().catch(console.error);
 });
 
 listen('open-settings', () => {
+  if (appWindow.label === 'settings') {
+    appWindow.show().catch(console.error);
+    appWindow.focus().catch(console.error);
+    return;
+  }
   const needsApiKey = isCloud() && !settings.nvidiaApiKey.trim();
   openSettings({
     section: needsApiKey ? 'models' : 'modes',
@@ -929,6 +1045,7 @@ listen('open-settings', () => {
 });
 
 listen('hud-state', (event) => {
+  if (appWindow.label !== 'main') return;
   const payload = event.payload;
   if (payload?.waveformMode) {
     setWaveformMode(payload.waveformMode);
@@ -938,7 +1055,28 @@ listen('hud-state', (event) => {
   }
 });
 
-renderWaveform();
+listen('focus-settings-section', (event) => {
+  if (appWindow.label !== 'settings') return;
+  const { focusApiKey, section, hintText } = event.payload;
+  openSettings({ focusApiKey, section, hintText });
+});
+
+listen('settings-changed', (event) => {
+  settings = normalizeSettingsConfig(event.payload);
+  selectedModeId = settings.defaultModeId;
+  syncSettingsUI();
+});
+
+appWindow.onCloseRequested((event) => {
+  if (appWindow.label === 'settings') {
+    event.preventDefault();
+    invoke('hide_settings_window').catch(console.error);
+  }
+});
+
+if (appWindow.label === 'main') {
+  renderWaveform();
+}
 applySettingsViewState();
 syncWindowVisibility();
 loadSettings().catch((err) => {
