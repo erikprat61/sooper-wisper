@@ -63,6 +63,7 @@ struct AppConfig {
     provider: String,
     nvidia_api_key: String,
     auto_purge: bool,
+    first_run: bool,
     modes: Vec<ModeConfig>,
     default_mode_id: String,
     vocabulary_replacements: Vec<VocabularyReplacement>,
@@ -85,6 +86,7 @@ impl Default for AppConfig {
                 .trim()
                 .to_string(),
             auto_purge: true,
+            first_run: true,
             modes: default_modes(),
             default_mode_id: DEFAULT_MODE_ID.to_string(),
             vocabulary_replacements: Vec::new(),
@@ -1023,6 +1025,7 @@ mod tests {
         let config = normalize_config(AppConfig::default());
         assert_eq!(config.default_mode_id, "note");
         assert_eq!(config.auto_purge, true);
+        assert_eq!(config.first_run, true);
         assert_eq!(config.modes.len(), 3);
         assert!(config.modes.iter().any(|mode| mode.id == "email"));
     }

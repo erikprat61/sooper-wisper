@@ -8,7 +8,7 @@ import { buildPromptPreview, getModeById, makeId, normalizeSettingsConfig, getMo
 
 const HUD_WINDOW_SIZE = { width: 388, height: 88 };
 const SETTINGS_WINDOW_SIZE = { width: 1100, height: 760 };
-const SETTINGS_SECTIONS = ['modes', 'models', 'vocabulary', 'shortcuts', 'privacy'];
+const SETTINGS_SECTIONS = ['onboarding', 'modes', 'models', 'vocabulary', 'shortcuts', 'privacy'];
 const DEFAULT_SETTINGS_HINT = 'Search and QR pairing stay stubbed for now.';
 
 const appWindow = getCurrentWindow();
@@ -85,6 +85,14 @@ const appRules = document.getElementById('app-rules');
 const addAppRuleButton = document.getElementById('add-app-rule');
 const vocabularyList = document.getElementById('vocabulary-list');
 const addVocabularyItemButton = document.getElementById('add-vocabulary-item');
+
+const sandboxInput = document.getElementById('sandbox-input');
+const sandboxLatency = document.getElementById('sandbox-latency');
+const sandboxCharCount = document.getElementById('sandbox-char-count');
+const sandboxRecordBtn = document.getElementById('sandbox-record-btn');
+const sandboxRecordStatus = document.getElementById('sandbox-record-status');
+const finishOnboardingBtn = document.getElementById('finish-onboarding-btn');
+const playgroundHotkeyDisplay = document.getElementById('playground-hotkey-display');
 
 function isCloud() {
   return settings.provider === 'nvidia-parakeet';
@@ -343,6 +351,10 @@ function syncSettingsUI() {
     : 'Audio stays on-device in local mode.';
   sidebarModeStatus.textContent = `Default mode: ${getModeById(settings, settings.defaultModeId)?.name || 'Note'}.`;
 
+  if (playgroundHotkeyDisplay) {
+    playgroundHotkeyDisplay.textContent = settings.dictationShortcut || uiMetadata?.dictationShortcut || 'Option+Space';
+  }
+
   renderModeList();
   renderModeEditor();
   renderAppRules();
@@ -430,10 +442,11 @@ function closeSettings() {
   }
 }
 
-function openSettings({ focusApiKey = false, section = 'modes', hintText = null } = {}) {
+function openSettings({ focusApiKey = false, section = null, hintText = null } = {}) {
+  const targetSection = section || (settings?.firstRun ? 'onboarding' : 'modes');
   if (appWindow.label === 'main') {
     invoke('show_settings_window').catch(console.error);
-    appWindow.emit('focus-settings-section', { focusApiKey, section, hintText }).catch(console.error);
+    appWindow.emit('focus-settings-section', { focusApiKey, section: targetSection, hintText }).catch(console.error);
     return;
   }
 
@@ -443,7 +456,7 @@ function openSettings({ focusApiKey = false, section = 'modes', hintText = null 
   settingsOpen = true;
   applySettingsViewState();
   syncSettingsUI();
-  setActiveSettingsSection(section);
+  setActiveSettingsSection(targetSection);
   setSettingsHint(hintText || `${uiMetadata.settingsShortcut} opens this window. ${DEFAULT_SETTINGS_HINT}`);
 
   if (focusApiKey) {
@@ -617,6 +630,7 @@ async function loadSettings() {
     hud.hidden = true;
     hud.setAttribute('aria-hidden', 'true');
     syncSettingsUI();
+    setActiveSettingsSection(settings.firstRun ? 'onboarding' : 'modes');
   }
 }
 
@@ -735,13 +749,24 @@ async function handleShortcutTrigger() {
         return;
       }
 
+      const startTime = performance.now();
       const text = await invoke('transcribe_audio', { audioBytes: Array.from(wavBytes) });
+      const latencyMs = Math.round(performance.now() - startTime);
+
       if (settings.autoPurge) {
         wavBytes.fill(0);
       }
 
       if (!text || !text.trim()) {
         showError('No speech detected', null, 'Try again or check microphone input');
+        return;
+      }
+
+      const lowerAppName = (capturedContext.appName || '').toLowerCase();
+      const isTargetOwnApp = lowerAppName.includes('wisper') || lowerAppName.includes('tauri');
+      if (isTargetOwnApp) {
+        appWindow.emit('sandbox-text-result', { text, latencyMs }).catch(console.error);
+        transitionTo('idle');
         return;
       }
 
@@ -1085,6 +1110,98 @@ listen('settings-changed', (event) => {
   selectedModeId = settings.defaultModeId;
   syncSettingsUI();
 });
+
+let sandboxIsRecording = false;
+
+async function handleSandboxRecord() {
+  if (!sandboxRecordBtn) return;
+  
+  if (sandboxIsRecording) {
+    sandboxIsRecording = false;
+    sandboxRecordBtn.textContent = 'Click to Speak';
+    sandboxRecordStatus.textContent = 'Processing transcription...';
+    sandboxRecordBtn.disabled = true;
+    
+    try {
+      const wavBytes = await recorder.stop();
+      if (wavBytes.length === 0) {
+        sandboxRecordStatus.textContent = 'Ready';
+        sandboxRecordBtn.disabled = false;
+        return;
+      }
+      
+      const startTime = performance.now();
+      const text = await invoke('transcribe_audio', { audioBytes: Array.from(wavBytes) });
+      const latencyMs = Math.round(performance.now() - startTime);
+      
+      if (settings.autoPurge) {
+        wavBytes.fill(0);
+      }
+      
+      if (!text || !text.trim()) {
+        sandboxRecordStatus.textContent = 'No speech detected';
+      } else {
+        sandboxInput.value = text;
+        sandboxLatency.textContent = `${latencyMs} ms`;
+        sandboxCharCount.textContent = `${text.length}`;
+        sandboxRecordStatus.textContent = 'Ready';
+      }
+    } catch (err) {
+      console.error(err);
+      sandboxRecordStatus.textContent = 'Error transcribing';
+    } finally {
+      sandboxRecordBtn.disabled = false;
+    }
+  } else {
+    sandboxIsRecording = true;
+    sandboxRecordBtn.textContent = 'Stop Speaking';
+    sandboxRecordStatus.textContent = 'Recording (speak now)...';
+    if (sandboxInput) sandboxInput.value = '';
+    if (sandboxLatency) sandboxLatency.textContent = '----';
+    if (sandboxCharCount) sandboxCharCount.textContent = '----';
+    
+    try {
+      await recorder.start(
+        null,
+        (level) => {
+          sandboxRecordStatus.textContent = `Recording (${Math.round(level * 100)}% volume)...`;
+        }
+      );
+    } catch (err) {
+      console.error(err);
+      sandboxRecordStatus.textContent = 'Microphone permission error';
+      sandboxIsRecording = false;
+      sandboxRecordBtn.textContent = 'Click to Speak';
+    }
+  }
+}
+
+if (isSettingsWindow) {
+  if (sandboxRecordBtn) {
+    sandboxRecordBtn.addEventListener('click', () => {
+      handleSandboxRecord().catch(console.error);
+    });
+  }
+
+  if (finishOnboardingBtn) {
+    finishOnboardingBtn.addEventListener('click', () => {
+      settings.firstRun = false;
+      persistSettings().catch((err) => {
+        console.error(err);
+        handleSaveError(err);
+      });
+    });
+  }
+
+  listen('sandbox-text-result', (event) => {
+    const { text, latencyMs } = event.payload;
+    if (sandboxInput) {
+      sandboxInput.value = text;
+      sandboxLatency.textContent = `${latencyMs} ms`;
+      sandboxCharCount.textContent = `${text.length}`;
+    }
+  });
+}
 
 appWindow.onCloseRequested((event) => {
   if (appWindow.label === 'settings') {

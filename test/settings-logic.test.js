@@ -7,6 +7,7 @@ test('normalizeSettingsConfig backfills built-ins and default mode', () => {
 
   assert.equal(config.defaultModeId, 'note');
   assert.equal(config.autoPurge, true);
+  assert.equal(config.firstRun, true);
   assert.deepEqual(config.modes.map((mode) => mode.id), ['note', 'email', 'message']);
   assert.equal(getModeById(config, 'note')?.name, 'Note');
 });

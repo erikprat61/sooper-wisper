@@ -146,7 +146,7 @@ This is where the app stops being “nice demo UI” and becomes trustworthy.
 
 ---
 
-### Phase 5 — Onboarding playground and final native polish [IN PROGRESS]
+### Phase 5 — Onboarding playground and final native polish [COMPLETED]
 Only after the main app flow is solid.
 
 #### Scope

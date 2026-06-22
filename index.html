@@ -78,6 +78,7 @@
           <div class="settings-sidebar-card">
             <p class="sidebar-title">Configuration</p>
             <nav class="settings-nav" aria-label="Settings sections">
+              <button class="settings-nav-button" type="button" data-settings-section="onboarding">Onboarding Playground</button>
               <button class="settings-nav-button active" type="button" data-settings-section="modes">Modes</button>
               <button class="settings-nav-button" type="button" data-settings-section="models">Models Library</button>
               <button class="settings-nav-button" type="button" data-settings-section="vocabulary">Vocabulary &amp; Custom Replacements</button>
@@ -95,6 +96,59 @@
         </aside>
 
         <section class="settings-detail" aria-live="polite">
+          <section class="settings-pane" data-settings-pane="onboarding" hidden>
+            <div class="pane-header">
+              <div>
+                <p class="pane-kicker">Welcome to Sooper-Wisper</p>
+                <h2>Interactive Onboarding Playground</h2>
+                <p class="pane-copy">Verify your microphone setup, dictation accuracy, and transcription latency in one place.</p>
+              </div>
+            </div>
+
+            <div class="settings-card-grid single-column">
+              <article class="settings-card">
+                <h3>1. Verify Microphone &amp; Dictation</h3>
+                <p class="muted-copy">Click the button below or press and hold your global hotkey <kbd class="inline-kbd" id="playground-hotkey-display">Option+Space</kbd> to dictate. Release it when done.</p>
+                
+                <div class="field top-gap-small">
+                  <div class="sandbox-trigger-row">
+                    <button id="sandbox-record-btn" class="primary-button compact-button" type="button" style="margin: 0;">Click to Speak</button>
+                    <span id="sandbox-record-status" class="sandbox-status-text">Ready</span>
+                  </div>
+                </div>
+
+                <div class="field top-gap-small">
+                  <span class="field-label">Playback Sandbox Field</span>
+                  <textarea id="sandbox-input" rows="4" placeholder="Start dictating to verify setup..."></textarea>
+                </div>
+
+                <div class="latency-metrics-row top-gap-small">
+                  <div class="metric-pill">
+                    <span class="metric-label">Latency:</span>
+                    <span id="sandbox-latency" class="metric-value">----</span>
+                  </div>
+                  <div class="metric-pill">
+                    <span class="metric-label">Characters:</span>
+                    <span id="sandbox-char-count" class="metric-value">----</span>
+                  </div>
+                </div>
+              </article>
+
+              <article class="settings-card">
+                <h3>2. Multilingual &amp; Custom Jargon Test</h3>
+                <p>Try dictating in another language or adding custom terms. For example, speak this Spanish phrase to verify mixed-language accuracy:</p>
+                <blockquote class="sandbox-quote">"y también puede incluir palabras en español"</blockquote>
+                <p class="muted-copy top-gap-small">If you have custom jargon or corrections, add them in the <strong>Vocabulary</strong> pane later to teach the speech model.</p>
+              </article>
+
+              <article class="settings-card" id="onboarding-completion-card">
+                <h3>3. Ready to Go!</h3>
+                <p>You are all set to use Sooper-Wisper across macOS. Press the button below to finish onboarding.</p>
+                <button id="finish-onboarding-btn" class="primary-button top-gap" type="button">Finish Onboarding &amp; Start Using App</button>
+              </article>
+            </div>
+          </section>
+
           <section class="settings-pane active" data-settings-pane="modes">
             <div class="pane-header">
               <div>

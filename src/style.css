@@ -894,3 +894,61 @@ kbd {
     transition: none;
   }
 }
+
+/* Onboarding Playground */
+.inline-kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  background: rgba(127, 127, 127, 0.15);
+  border-radius: 4px;
+  padding: 2px 5px;
+  border: 1px solid var(--border-subtle);
+}
+
+.sandbox-trigger-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sandbox-status-text {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.latency-metrics-row {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.metric-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(127, 127, 127, 0.06);
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+}
+
+.metric-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sandbox-quote {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent-processing);
+  background: var(--bg-card);
+  font-style: italic;
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+
+#finish-onboarding-btn {
+  width: 100%;
+}
